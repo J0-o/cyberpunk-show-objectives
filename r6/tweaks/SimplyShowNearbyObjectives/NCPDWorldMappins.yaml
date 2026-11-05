@@ -9,3 +9,8 @@ Mappins.StaticPointOfInterestMappinDefinition:
     - !append-once Mappins.PointOfInterest_GangWatchVariant
     - !append-once Mappins.PointOfInterest_OutpostVariant
     - !append-once Mappins.PointOfInterest_MinorActivityVariant
+
+MappinUISpawnProfile.SSNOObjectiveRange:
+  $type: gamedataMappinUISpawnProfile_Record
+  spawnDistance: 200
+  despawnDistance: 300

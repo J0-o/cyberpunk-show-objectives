@@ -134,7 +134,6 @@ public abstract class ObjectiveFilter extends IScriptable {
 public class ObjectiveSelector extends ScriptableSystem {
   private let m_controllers: array<wref<QuestMappinController>>;
   private let m_selected: array<wref<QuestMappinController>>;
-  private let m_refreshPending: Bool;
 
   public static func Get() -> ref<ObjectiveSelector> {
     return GameInstance.GetScriptableSystemsContainer(GetGameInstance())
@@ -148,7 +147,6 @@ public class ObjectiveSelector extends ScriptableSystem {
         ArrayErase(this.m_controllers, i);
       } else {
         if this.m_controllers[i] == controller {
-          this.ScheduleRefresh();
           return;
         };
       };
@@ -156,29 +154,52 @@ public class ObjectiveSelector extends ScriptableSystem {
     };
 
     ArrayPush(this.m_controllers, controller);
-    this.ScheduleRefresh();
-  }
-
-  private func ScheduleRefresh() -> Void {
-    let delaySystem: ref<DelaySystem>;
-
-    if this.m_refreshPending {
-      return;
-    };
-
-    delaySystem = GameInstance.GetDelaySystem(GetGameInstance());
-    if !IsDefined(delaySystem) {
-      this.ApplySelection();
-      return;
-    };
-
-    this.m_refreshPending = true;
-    delaySystem.DelayCallback(ObjectiveRefreshCallback.Create(this), 0.10, false);
-  }
-
-  public func Refresh() -> Void {
-    this.m_refreshPending = false;
     this.ApplySelection();
+  }
+
+  public func Unregister(controller: ref<QuestMappinController>) -> Void {
+    let changed: Bool;
+    let i: Int32 = ArraySize(this.m_controllers) - 1;
+    while i >= 0 {
+      if !IsDefined(this.m_controllers[i]) || this.m_controllers[i] == controller {
+        ArrayErase(this.m_controllers, i);
+        changed = true;
+      };
+      i -= 1;
+    };
+
+    i = ArraySize(this.m_selected) - 1;
+    while i >= 0 {
+      if !IsDefined(this.m_selected[i]) || this.m_selected[i] == controller {
+        ArrayErase(this.m_selected, i);
+        changed = true;
+      };
+      i -= 1;
+    };
+
+    if changed {
+      this.ApplySelection();
+    };
+  }
+
+  public func ApplyVisibility(controller: ref<QuestMappinController>) -> Void {
+    if IsDefined(controller) && controller.RNOShouldManageVisibility() {
+      controller.RNOApplySelection(
+        this.IsSelected(controller) && !this.ShouldHideAll()
+      );
+    };
+  }
+
+  private func ShouldHideAll() -> Bool {
+    let i: Int32;
+    while i < ArraySize(this.m_controllers) {
+      if IsDefined(this.m_controllers[i])
+        && this.m_controllers[i].RNOIsTrackedDestinationNearby() {
+        return true;
+      };
+      i += 1;
+    };
+    return false;
   }
 
   private func ApplySelection() -> Void {
@@ -216,14 +237,7 @@ public class ObjectiveSelector extends ScriptableSystem {
       ArrayErase(candidates, selectedIndex);
     };
 
-    i = 0;
-    while i < ArraySize(this.m_controllers) {
-      if IsDefined(this.m_controllers[i]) && this.m_controllers[i].RNOIsTrackedDestinationNearby() {
-        shouldHide = true;
-        break;
-      };
-      i += 1;
-    };
+    shouldHide = this.ShouldHideAll();
 
     i = 0;
     while i < ArraySize(this.m_controllers) {
@@ -249,22 +263,6 @@ public class ObjectiveSelector extends ScriptableSystem {
   }
 }
 
-public class ObjectiveRefreshCallback extends DelayCallback {
-  private let m_selector: wref<ObjectiveSelector>;
-
-  public static func Create(selector: ref<ObjectiveSelector>) -> ref<ObjectiveRefreshCallback> {
-    let callback: ref<ObjectiveRefreshCallback> = new ObjectiveRefreshCallback();
-    callback.m_selector = selector;
-    return callback;
-  }
-
-  public func Call() -> Void {
-    if IsDefined(this.m_selector) {
-      this.m_selector.Refresh();
-    };
-  }
-}
-
 @wrapMethod(WorldMappinsContainerController)
 public func CreateMappinUIProfile(
   mappin: wref<IMappin>,
@@ -274,7 +272,7 @@ public func CreateMappinUIProfile(
   if ObjectiveFilter.IsEligible(mappin, mappinVariant) {
     return MappinUIProfile.Create(
       r"base\\gameplay\\gui\\widgets\\mappins\\quest\\default_mappin.inkwidget",
-      t"MappinUISpawnProfile.Always",
+      t"MappinUISpawnProfile.SSNOObjectiveRange",
       t"WorldMappinUIProfile.Quest"
     );
   };
@@ -283,16 +281,36 @@ public func CreateMappinUIProfile(
 }
 
 @wrapMethod(QuestMappinController)
+protected cb func OnIntro() -> Bool {
+  let selector: ref<ObjectiveSelector>;
+  let result: Bool = wrappedMethod();
+
+  selector = ObjectiveSelector.Get();
+  if IsDefined(selector)
+    && ObjectiveFilter.IsSupported(this.m_mappin, this.m_mappin.GetVariant()) {
+    selector.Register(this);
+  };
+  return result;
+}
+
+@wrapMethod(QuestMappinController)
+protected cb func OnUninitialize() -> Bool {
+  let selector: ref<ObjectiveSelector> = ObjectiveSelector.Get();
+  if IsDefined(selector) {
+    selector.Unregister(this);
+  };
+  return wrappedMethod();
+}
+
+@wrapMethod(QuestMappinController)
 private func UpdateVisibility() -> Void {
   let selector: ref<ObjectiveSelector>;
   wrappedMethod();
 
   selector = ObjectiveSelector.Get();
-  if !IsDefined(selector) {
-    return;
+  if IsDefined(selector) {
+    selector.ApplyVisibility(this);
   };
-
-  selector.Register(this);
 }
 
 @addMethod(QuestMappinController)
@@ -357,7 +375,7 @@ public func DetermineCurrentVisibility() -> Bool {
   let result: Bool = wrappedMethod();
   let selector: ref<ObjectiveSelector> = ObjectiveSelector.Get();
   if IsDefined(selector) && this.RNOIsEligible() {
-    this.RNOApplySelection(selector.IsSelected(this));
+    selector.ApplyVisibility(this);
     return true;
   };
   return result;
