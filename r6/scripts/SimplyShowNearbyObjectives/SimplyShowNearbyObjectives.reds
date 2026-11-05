@@ -15,6 +15,15 @@ public class ObjectiveSettings {
   let maxIcons: Int32 = 3;
 
   @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "General")
+  @runtimeProperty("ModSettings.displayName", "Icon opacity")
+  @runtimeProperty("ModSettings.description", "Opacity of nearby objective icons. Player-tracked icons remain fully opaque.")
+  @runtimeProperty("ModSettings.step", "0.05")
+  @runtimeProperty("ModSettings.min", "0.0")
+  @runtimeProperty("ModSettings.max", "1.0")
+  let iconOpacity: Float = 0.50;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
   @runtimeProperty("ModSettings.category", "Objective Types")
   @runtimeProperty("ModSettings.displayName", "Quests")
   let showQuests: Bool = true;
@@ -180,11 +189,27 @@ public class ObjectiveSelector extends ScriptableSystem {
   }
 
   public func ApplyVisibility(controller: ref<QuestMappinController>) -> Void {
-    if IsDefined(controller) && controller.RNOShouldManageVisibility() {
+    if !IsDefined(controller) {
+      return;
+    };
+
+    if controller.RNOShouldManageVisibility() {
       controller.RNOApplySelection(
         this.IsSelected(controller) && !this.ShouldHideAll()
       );
+    } else {
+      controller.RNORestoreOpacity();
     };
+  }
+
+  public func ApplyOpacity(controller: ref<QuestMappinController>) -> Void {
+    if !IsDefined(controller)
+      || !controller.RNOShouldManageVisibility()
+      || !this.IsSelected(controller) {
+      return;
+    };
+
+    controller.RNOSetPresentationOpacity(ObjectiveSettings.Get().iconOpacity);
   }
 
   private func ShouldHideAll() -> Bool {
@@ -311,6 +336,17 @@ private func UpdateVisibility() -> Void {
   };
 }
 
+@wrapMethod(QuestMappinController)
+private func UpdateIcon() -> Void {
+  let selector: ref<ObjectiveSelector>;
+  wrappedMethod();
+
+  selector = ObjectiveSelector.Get();
+  if IsDefined(selector) {
+    selector.ApplyOpacity(this);
+  };
+}
+
 @addMethod(QuestMappinController)
 public func RNOIsEligible() -> Bool {
   return ObjectiveFilter.IsEligible(this.m_mappin, this.m_mappin.GetVariant());
@@ -365,6 +401,34 @@ public func RNOCanRemainSelected() -> Bool {
 @addMethod(QuestMappinController)
 public func RNOApplySelection(selected: Bool) -> Void {
   this.SetRootVisible(selected && this.RNOIsActive());
+  this.RNOSetPresentationOpacity(selected ? ObjectiveSettings.Get().iconOpacity : 1.0);
+}
+
+@addMethod(QuestMappinController)
+public func RNOSetPresentationOpacity(opacity: Float) -> Void {
+  this.RNOSetChildOpacity(this.GetRootWidget(), opacity);
+}
+
+@addMethod(QuestMappinController)
+private func RNOSetChildOpacity(widget: wref<inkWidget>, opacity: Float) -> Void {
+  let compound: wref<inkCompoundWidget> = widget as inkCompoundWidget;
+  let i: Int32;
+
+  if IsDefined(compound) {
+    while i < compound.GetNumChildren() {
+      this.RNOSetChildOpacity(compound.GetWidgetByIndex(i), opacity);
+      i += 1;
+    };
+  } else {
+    widget.SetOpacity(opacity);
+  };
+}
+
+@addMethod(QuestMappinController)
+public func RNORestoreOpacity() -> Void {
+  if ObjectiveFilter.IsSupported(this.m_mappin, this.m_mappin.GetVariant()) {
+    this.RNOSetPresentationOpacity(1.0);
+  };
 }
 
 @if(ModuleExists("LimitedHudCommon"))
