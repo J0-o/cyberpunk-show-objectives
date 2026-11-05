@@ -49,15 +49,6 @@ public class ObjectiveSettings {
   @runtimeProperty("ModSettings.displayName", "Suspected Criminal Activity")
   let showCriminalActivities: Bool = true;
 
-  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
-  @runtimeProperty("ModSettings.category", "Objective Types")
-  @runtimeProperty("ModSettings.displayName", "Hidden Stashes")
-  let showHiddenStashes: Bool = true;
-
-  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
-  @runtimeProperty("ModSettings.category", "Objective Types")
-  @runtimeProperty("ModSettings.displayName", "Undiscovered")
-  let showUndiscovered: Bool = true;
 }
 
 public abstract class ObjectiveFilter extends IScriptable {
@@ -67,8 +58,6 @@ public abstract class ObjectiveFilter extends IScriptable {
       || Equals(variant, gamedataMappinVariant.GangWatchVariant)
       || Equals(variant, gamedataMappinVariant.OutpostVariant)
       || Equals(variant, gamedataMappinVariant.MinorActivityVariant)
-      || Equals(variant, gamedataMappinVariant.QuestionMarkVariant)
-      || Equals(variant, gamedataMappinVariant.HiddenStashVariant)
       || Equals(variant, gamedataMappinVariant.HuntForPsychoVariant)
       || Equals(variant, gamedataMappinVariant.BountyHuntVariant)
       || Equals(variant, gamedataMappinVariant.QuestGiverVariant)
@@ -92,10 +81,6 @@ public abstract class ObjectiveFilter extends IScriptable {
         && Equals(variant, gamedataMappinVariant.OutpostVariant)
       || settings.showReportedCrime
         && Equals(variant, gamedataMappinVariant.MinorActivityVariant)
-      || settings.showUndiscovered
-        && Equals(variant, gamedataMappinVariant.QuestionMarkVariant)
-      || settings.showHiddenStashes
-        && Equals(variant, gamedataMappinVariant.HiddenStashVariant)
       || settings.showCyberpsychos
         && Equals(variant, gamedataMappinVariant.HuntForPsychoVariant)
       || settings.showGigs
@@ -134,6 +119,18 @@ public abstract class ObjectiveFilter extends IScriptable {
 public class ObjectiveSelector extends ScriptableSystem {
   private let m_controllers: array<wref<QuestMappinController>>;
   private let m_selected: array<wref<QuestMappinController>>;
+
+  private func OnAttach() -> Void {
+    ModSettings.RegisterListenerToModifications(this);
+  }
+
+  private func OnDetach() -> Void {
+    ModSettings.UnregisterListenerToModifications(this);
+  }
+
+  public func OnModSettingsChange() -> Void {
+    this.ApplySelection();
+  }
 
   public static func Get() -> ref<ObjectiveSelector> {
     return GameInstance.GetScriptableSystemsContainer(GetGameInstance())
@@ -269,7 +266,8 @@ public func CreateMappinUIProfile(
   mappinVariant: gamedataMappinVariant,
   customData: ref<MappinControllerCustomData>
 ) -> MappinUIProfile {
-  if ObjectiveFilter.IsEligible(mappin, mappinVariant) {
+  if ObjectiveFilter.IsSupported(mappin, mappinVariant)
+    && !mappin.IsPlayerTracked() {
     return MappinUIProfile.Create(
       r"base\\gameplay\\gui\\widgets\\mappins\\quest\\default_mappin.inkwidget",
       t"MappinUISpawnProfile.SSNOObjectiveRange",
