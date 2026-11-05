@@ -1,0 +1,11 @@
+Mappins.StaticPointOfInterestMappinDefinition:
+  showInWorld: true
+  possibleVariants:
+    - !append-once Mappins.PointOfInterest_BountyHuntVariant
+    - !append-once Mappins.PointOfInterest_ClientInDistressVariant
+    - !append-once Mappins.PointOfInterest_SabotageVariant
+    - !append-once Mappins.PointOfInterest_ThieveryVariant
+    - !append-once Mappins.PointOfInterest_RetrievingVariant
+    - !append-once Mappins.PointOfInterest_GangWatchVariant
+    - !append-once Mappins.PointOfInterest_OutpostVariant
+    - !append-once Mappins.PointOfInterest_MinorActivityVariant

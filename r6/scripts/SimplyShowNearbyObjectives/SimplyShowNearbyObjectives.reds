@@ -1,0 +1,364 @@
+module SimplyShowNearbyObjectives
+
+public class ObjectiveSettings {
+  public static func Get() -> ref<ObjectiveSettings> {
+    return new ObjectiveSettings();
+  }
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "General")
+  @runtimeProperty("ModSettings.displayName", "Number of icons")
+  @runtimeProperty("ModSettings.description", "Maximum number of nearby objective icons shown at once.")
+  @runtimeProperty("ModSettings.step", "1")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "10")
+  let maxIcons: Int32 = 3;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Quests")
+  let showQuests: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Gigs")
+  let showGigs: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Cyberpsycho Sightings")
+  let showCyberpsychos: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "NCPD Scanner Hustles")
+  let showNCPDScannerHustles: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Reported Crime")
+  let showReportedCrime: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Assault in Progress")
+  let showAssaults: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Suspected Criminal Activity")
+  let showCriminalActivities: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Hidden Stashes")
+  let showHiddenStashes: Bool = true;
+
+  @runtimeProperty("ModSettings.mod", "Simply Show Nearby Objectives")
+  @runtimeProperty("ModSettings.category", "Objective Types")
+  @runtimeProperty("ModSettings.displayName", "Undiscovered")
+  let showUndiscovered: Bool = true;
+}
+
+public abstract class ObjectiveFilter extends IScriptable {
+  public static func IsActivityVariant(variant: gamedataMappinVariant) -> Bool {
+    return Equals(variant, gamedataMappinVariant.DefaultQuestVariant)
+      || Equals(variant, gamedataMappinVariant.Zzz06_NCPDGigVariant)
+      || Equals(variant, gamedataMappinVariant.GangWatchVariant)
+      || Equals(variant, gamedataMappinVariant.OutpostVariant)
+      || Equals(variant, gamedataMappinVariant.MinorActivityVariant)
+      || Equals(variant, gamedataMappinVariant.QuestionMarkVariant)
+      || Equals(variant, gamedataMappinVariant.HiddenStashVariant)
+      || Equals(variant, gamedataMappinVariant.HuntForPsychoVariant)
+      || Equals(variant, gamedataMappinVariant.BountyHuntVariant)
+      || Equals(variant, gamedataMappinVariant.QuestGiverVariant)
+      || Equals(variant, gamedataMappinVariant.RetrievingVariant)
+      || Equals(variant, gamedataMappinVariant.ClientInDistressVariant)
+      || Equals(variant, gamedataMappinVariant.SabotageVariant)
+      || Equals(variant, gamedataMappinVariant.ThieveryVariant)
+      || Equals(variant, gamedataMappinVariant.CourierVariant)
+      || Equals(variant, gamedataMappinVariant.ConvoyVariant);
+  }
+
+  public static func IsEnabledVariant(variant: gamedataMappinVariant) -> Bool {
+    let settings: ref<ObjectiveSettings> = ObjectiveSettings.Get();
+    return settings.showQuests
+        && Equals(variant, gamedataMappinVariant.DefaultQuestVariant)
+      || settings.showNCPDScannerHustles
+        && Equals(variant, gamedataMappinVariant.Zzz06_NCPDGigVariant)
+      || settings.showAssaults
+        && Equals(variant, gamedataMappinVariant.GangWatchVariant)
+      || settings.showCriminalActivities
+        && Equals(variant, gamedataMappinVariant.OutpostVariant)
+      || settings.showReportedCrime
+        && Equals(variant, gamedataMappinVariant.MinorActivityVariant)
+      || settings.showUndiscovered
+        && Equals(variant, gamedataMappinVariant.QuestionMarkVariant)
+      || settings.showHiddenStashes
+        && Equals(variant, gamedataMappinVariant.HiddenStashVariant)
+      || settings.showCyberpsychos
+        && Equals(variant, gamedataMappinVariant.HuntForPsychoVariant)
+      || settings.showGigs
+        && (Equals(variant, gamedataMappinVariant.BountyHuntVariant)
+          || Equals(variant, gamedataMappinVariant.QuestGiverVariant)
+          || Equals(variant, gamedataMappinVariant.RetrievingVariant)
+          || Equals(variant, gamedataMappinVariant.ClientInDistressVariant)
+          || Equals(variant, gamedataMappinVariant.SabotageVariant)
+          || Equals(variant, gamedataMappinVariant.ThieveryVariant)
+          || Equals(variant, gamedataMappinVariant.CourierVariant)
+          || Equals(variant, gamedataMappinVariant.ConvoyVariant));
+  }
+
+  public static func IsSupported(mappin: wref<IMappin>, variant: gamedataMappinVariant) -> Bool {
+    let questMappin: ref<QuestMappin>;
+
+    if !IsDefined(mappin)
+      || !ObjectiveFilter.IsActivityVariant(variant) {
+      return false;
+    };
+    questMappin = mappin as QuestMappin;
+    if IsDefined(questMappin) && questMappin.IsUIAnimation() {
+      return false;
+    };
+    return true;
+  }
+
+  public static func IsEligible(mappin: wref<IMappin>, variant: gamedataMappinVariant) -> Bool {
+    return ObjectiveFilter.IsSupported(mappin, variant)
+      && ObjectiveFilter.IsEnabledVariant(variant)
+      && !mappin.IsPlayerTracked();
+  }
+
+}
+
+public class ObjectiveSelector extends ScriptableSystem {
+  private let m_controllers: array<wref<QuestMappinController>>;
+  private let m_selected: array<wref<QuestMappinController>>;
+  private let m_refreshPending: Bool;
+
+  public static func Get() -> ref<ObjectiveSelector> {
+    return GameInstance.GetScriptableSystemsContainer(GetGameInstance())
+      .Get(n"SimplyShowNearbyObjectives.ObjectiveSelector") as ObjectiveSelector;
+  }
+
+  public func Register(controller: ref<QuestMappinController>) -> Void {
+    let i: Int32 = ArraySize(this.m_controllers) - 1;
+    while i >= 0 {
+      if !IsDefined(this.m_controllers[i]) {
+        ArrayErase(this.m_controllers, i);
+      } else {
+        if this.m_controllers[i] == controller {
+          this.ScheduleRefresh();
+          return;
+        };
+      };
+      i -= 1;
+    };
+
+    ArrayPush(this.m_controllers, controller);
+    this.ScheduleRefresh();
+  }
+
+  private func ScheduleRefresh() -> Void {
+    let delaySystem: ref<DelaySystem>;
+
+    if this.m_refreshPending {
+      return;
+    };
+
+    delaySystem = GameInstance.GetDelaySystem(GetGameInstance());
+    if !IsDefined(delaySystem) {
+      this.ApplySelection();
+      return;
+    };
+
+    this.m_refreshPending = true;
+    delaySystem.DelayCallback(ObjectiveRefreshCallback.Create(this), 0.10, false);
+  }
+
+  public func Refresh() -> Void {
+    this.m_refreshPending = false;
+    this.ApplySelection();
+  }
+
+  private func ApplySelection() -> Void {
+    let candidates: array<wref<QuestMappinController>>;
+    let i: Int32;
+    let maxIcons: Int32 = ObjectiveSettings.Get().maxIcons;
+    let selectedIndex: Int32;
+    let shouldHide: Bool;
+
+    i = ArraySize(this.m_selected) - 1;
+    while i >= 0 {
+      if !IsDefined(this.m_selected[i]) || !this.m_selected[i].RNOCanRemainSelected() {
+        ArrayErase(this.m_selected, i);
+      };
+      i -= 1;
+    };
+
+    while ArraySize(this.m_selected) > maxIcons {
+      ArrayErase(this.m_selected, ArraySize(this.m_selected) - 1);
+    };
+
+    i = 0;
+    while i < ArraySize(this.m_controllers) {
+      if IsDefined(this.m_controllers[i])
+        && this.m_controllers[i].RNOIsCandidate()
+        && !this.IsSelected(this.m_controllers[i]) {
+        ArrayPush(candidates, this.m_controllers[i]);
+      };
+      i += 1;
+    };
+
+    while ArraySize(this.m_selected) < maxIcons && ArraySize(candidates) > 0 {
+      selectedIndex = RandRange(0, ArraySize(candidates));
+      ArrayPush(this.m_selected, candidates[selectedIndex]);
+      ArrayErase(candidates, selectedIndex);
+    };
+
+    i = 0;
+    while i < ArraySize(this.m_controllers) {
+      if IsDefined(this.m_controllers[i]) && this.m_controllers[i].RNOIsTrackedDestinationNearby() {
+        shouldHide = true;
+        break;
+      };
+      i += 1;
+    };
+
+    i = 0;
+    while i < ArraySize(this.m_controllers) {
+      if IsDefined(this.m_controllers[i])
+        && this.m_controllers[i].RNOShouldManageVisibility() {
+        this.m_controllers[i].RNOApplySelection(
+          this.IsSelected(this.m_controllers[i]) && !shouldHide
+        );
+      };
+      i += 1;
+    };
+  }
+
+  public func IsSelected(controller: ref<QuestMappinController>) -> Bool {
+    let i: Int32;
+    while i < ArraySize(this.m_selected) {
+      if IsDefined(this.m_selected[i]) && this.m_selected[i] == controller {
+        return true;
+      };
+      i += 1;
+    };
+    return false;
+  }
+}
+
+public class ObjectiveRefreshCallback extends DelayCallback {
+  private let m_selector: wref<ObjectiveSelector>;
+
+  public static func Create(selector: ref<ObjectiveSelector>) -> ref<ObjectiveRefreshCallback> {
+    let callback: ref<ObjectiveRefreshCallback> = new ObjectiveRefreshCallback();
+    callback.m_selector = selector;
+    return callback;
+  }
+
+  public func Call() -> Void {
+    if IsDefined(this.m_selector) {
+      this.m_selector.Refresh();
+    };
+  }
+}
+
+@wrapMethod(WorldMappinsContainerController)
+public func CreateMappinUIProfile(
+  mappin: wref<IMappin>,
+  mappinVariant: gamedataMappinVariant,
+  customData: ref<MappinControllerCustomData>
+) -> MappinUIProfile {
+  if ObjectiveFilter.IsEligible(mappin, mappinVariant) {
+    return MappinUIProfile.Create(
+      r"base\\gameplay\\gui\\widgets\\mappins\\quest\\default_mappin.inkwidget",
+      t"MappinUISpawnProfile.Always",
+      t"WorldMappinUIProfile.Quest"
+    );
+  };
+
+  return wrappedMethod(mappin, mappinVariant, customData);
+}
+
+@wrapMethod(QuestMappinController)
+private func UpdateVisibility() -> Void {
+  let selector: ref<ObjectiveSelector>;
+  wrappedMethod();
+
+  selector = ObjectiveSelector.Get();
+  if !IsDefined(selector) {
+    return;
+  };
+
+  selector.Register(this);
+}
+
+@addMethod(QuestMappinController)
+public func RNOIsEligible() -> Bool {
+  return ObjectiveFilter.IsEligible(this.m_mappin, this.m_mappin.GetVariant());
+}
+
+@addMethod(QuestMappinController)
+public func RNOShouldManageVisibility() -> Bool {
+  return ObjectiveFilter.IsSupported(this.m_mappin, this.m_mappin.GetVariant())
+    && !this.m_mappin.IsPlayerTracked();
+}
+
+@addMethod(QuestMappinController)
+private func RNODistanceToPlayer() -> Float {
+  let player: ref<PlayerPuppet> = GetPlayer(GetGameInstance());
+  if !IsDefined(player) {
+    return 999999.0;
+  };
+  return Vector4.Distance(player.GetWorldPosition(), this.m_mappin.GetWorldPosition());
+}
+
+@addMethod(QuestMappinController)
+private func RNOIsActive() -> Bool {
+  let variant: gamedataMappinVariant = this.m_mappin.GetVariant();
+  let isActiveOnWorldMap: Bool = this.m_questMappin == null
+    || this.m_questMappin.IsActive()
+    || !Equals(variant, gamedataMappinVariant.DefaultQuestVariant);
+  return isActiveOnWorldMap
+    && !this.m_isCompletedPhase;
+}
+
+@addMethod(QuestMappinController)
+public func RNOIsTrackedDestinationNearby() -> Bool {
+  return this.m_mappin.IsPlayerTracked()
+    && this.RNODistanceToPlayer() <= 20.0;
+}
+
+@addMethod(QuestMappinController)
+public func RNOIsCandidate() -> Bool {
+  return this.RNOIsEligible()
+    && this.RNOIsActive()
+    && this.RNODistanceToPlayer() <= 200.0;
+}
+
+@addMethod(QuestMappinController)
+public func RNOCanRemainSelected() -> Bool {
+  return ObjectiveFilter.IsSupported(this.m_mappin, this.m_mappin.GetVariant())
+    && ObjectiveFilter.IsEnabledVariant(this.m_mappin.GetVariant())
+    && this.RNOIsActive()
+    && this.RNODistanceToPlayer() <= 300.0;
+}
+
+@addMethod(QuestMappinController)
+public func RNOApplySelection(selected: Bool) -> Void {
+  this.SetRootVisible(selected && this.RNOIsActive());
+}
+
+@if(ModuleExists("LimitedHudCommon"))
+@wrapMethod(QuestMappinController)
+public func DetermineCurrentVisibility() -> Bool {
+  let result: Bool = wrappedMethod();
+  let selector: ref<ObjectiveSelector> = ObjectiveSelector.Get();
+  if IsDefined(selector) && this.RNOIsEligible() {
+    this.RNOApplySelection(selector.IsSelected(this));
+    return true;
+  };
+  return result;
+}
