@@ -372,7 +372,7 @@ public func RNOApplySelection(selected: Bool) -> Void {
 public func DetermineCurrentVisibility() -> Bool {
   let result: Bool = wrappedMethod();
   let selector: ref<ObjectiveSelector> = ObjectiveSelector.Get();
-  if IsDefined(selector) && this.RNOIsEligible() {
+  if IsDefined(selector) && this.RNOShouldManageVisibility() {
     selector.ApplyVisibility(this);
     return true;
   };
